@@ -6,7 +6,7 @@ import "./globals.css";
 const chivo = Chivo({
   variable: "--font-sans",
   subsets: ["latin"],
-  weight: ["100", "300", "400"],
+  weight: ["100", "300", "400", "500", "600"],
 });
 
 // Source Serif 4: display / headings (maps to "Source Serif Pro" in Figma)

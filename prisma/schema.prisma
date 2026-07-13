@@ -1,0 +1,250 @@
+// Guilded schema — lean MVP subset of docs/database-schema.md.
+// ponytail: posts/polls/comments/likes/reports/messaging tables land when the
+// Discussions backend gets built — no consumers yet, so not modeled yet.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  applicant
+  member
+  moderator
+  admin
+}
+
+enum UserStatus {
+  pending_application
+  interview_scheduled
+  accepted
+  rejected
+  active
+  deactivated
+}
+
+enum ApplicationStatus {
+  submitted
+  interview_scheduled
+  accepted
+  rejected
+}
+
+enum EventStatus {
+  upcoming
+  cancelled
+  completed
+}
+
+enum ReviewStatus {
+  pending
+  approved
+  rejected
+}
+
+enum NotificationFrequency {
+  real_time
+  daily
+  weekly
+  monthly
+}
+
+model User {
+  id            String     @id @default(uuid())
+  email         String     @unique
+  emailVerified DateTime?
+  passwordHash  String?
+  name          String
+  image         String?
+  linkedinUrl   String?
+  role          Role       @default(applicant)
+  status        UserStatus @default(pending_application)
+
+  notificationFrequency NotificationFrequency @default(real_time)
+
+  accounts       Account[]
+  sessions       Session[]
+  applications   Application[]
+  reviewedApps   Application[] @relation("ApplicationReviewer")
+  createdEvents  Event[]
+  rsvps          EventRsvp[]
+  clientReviews  ClientReview[] @relation("ReviewSubmitter")
+  reviewedClaims ClientReview[] @relation("ClientReviewReviewer")
+  posts          Post[]
+  comments       PostComment[]
+  likes          PostLike[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Discussions. ponytail: text posts only — image/poll types from the older docs
+// aren't in the shipped Figma feed; add PostType + PollOption/PollVote when the
+// create-post design actually calls for them.
+model Post {
+  id        String   @id @default(uuid())
+  authorId  String
+  category  String
+  title     String
+  body      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  author   User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  comments PostComment[]
+  likes    PostLike[]
+
+  @@index([category, createdAt])
+}
+
+model PostComment {
+  id        String   @id @default(uuid())
+  postId    String
+  authorId  String
+  body      String
+  createdAt DateTime @default(now())
+  deletedAt DateTime?
+
+  post   Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([postId, createdAt])
+}
+
+model PostLike {
+  id        String   @id @default(uuid())
+  postId    String
+  userId    String
+  createdAt DateTime @default(now())
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+}
+
+model Account {
+  id                String  @id @default(uuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Application {
+  id               String            @id @default(uuid())
+  userId           String
+  agencyName       String
+  agencyWebsite    String?
+  industry         String
+  agencySize       String
+  yearsInOperation String
+  monthlyRevenue   String
+  primaryServices  String
+  motivation       String
+  currentChallenge String
+  location         String?
+  // { profile: number, niche: number, activity: number } — moderator-facing fit scores (Figma applicant view)
+  fitScores        Json?
+  status           ApplicationStatus @default(submitted)
+  reviewedById     String?
+  reviewedAt       DateTime?
+  rejectionReason  String?
+  createdAt        DateTime          @default(now())
+
+  user       User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reviewedBy User? @relation("ApplicationReviewer", fields: [reviewedById], references: [id])
+
+  @@index([status])
+}
+
+// "Event" not "Session" — NextAuth owns the Session model (docs/database-schema.md).
+model Event {
+  id              String      @id @default(uuid())
+  title           String
+  description     String
+  hostName        String
+  category        String? // e.g. "Open MeetUp", "Guild Meeting" — event-type chip in the dashboard
+  scheduledAt     DateTime
+  durationMinutes Int
+  seatLimit       Int?
+  status          EventStatus @default(upcoming)
+  createdById     String
+  createdAt       DateTime    @default(now())
+
+  createdBy User        @relation(fields: [createdById], references: [id])
+  rsvps     EventRsvp[]
+
+  @@index([status, scheduledAt])
+}
+
+model EventRsvp {
+  id        String   @id @default(uuid())
+  eventId   String
+  userId    String
+  createdAt DateTime @default(now())
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+}
+
+model ClientReview {
+  id            String       @id @default(uuid())
+  submittedById String
+  clientCompany String
+  industry      String?
+  city          String?
+  service       String?
+  // Fixed 8-dimension rubric (docs/rules-and-regulations.md §3):
+  // { payment_behaviour, communication_quality, scope_clarity, scope_creep,
+  //   decision_making_speed, ease_of_working, professionalism: 1-5,
+  //   would_work_again: boolean }
+  rating        Json
+  description   String
+  // Immutable after creation — never expose an update path for this field.
+  isAnonymous   Boolean      @default(false)
+  status        ReviewStatus @default(pending)
+  reviewedById  String?
+  reviewedAt    DateTime?
+  createdAt     DateTime     @default(now())
+
+  submittedBy User  @relation("ReviewSubmitter", fields: [submittedById], references: [id])
+  reviewedBy  User? @relation("ClientReviewReviewer", fields: [reviewedById], references: [id])
+
+  @@index([status])
+}

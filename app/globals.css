@@ -48,6 +48,17 @@
   --color-guilded-gold-border: var(--guilded-gold-border);
   --color-guilded-brown: var(--guilded-brown);
   --color-guilded-green-card: var(--guilded-green-card);
+  /* Dark-mode portal tokens (docs/design-system.md) → bg/text/ring-portal-* */
+  --color-portal-bg: var(--portal-bg);
+  --color-portal-card: var(--portal-card);
+  --color-portal-cream: var(--portal-cream);
+  --color-portal-bright: var(--portal-bright);
+  --color-portal-gold: var(--portal-gold);
+  --color-portal-ongold: var(--portal-ongold);
+  --color-portal-muted: var(--portal-muted);
+  --color-portal-faint: var(--portal-faint);
+  --color-portal-green: var(--portal-green);
+  --color-portal-red: var(--portal-red);
   --radius-sm: calc(var(--radius) * 0.4);
   --radius-md: calc(var(--radius) * 0.67);
   --radius-lg: var(--radius);
@@ -66,6 +77,18 @@
   --guilded-gold-border: #cca455;
   --guilded-brown:       #261a0f;
   --guilded-green-card:  #1a3830;
+
+  /* ── Dark-mode portal palette (Figma "Design system" page) ── */
+  --portal-bg:     #121212;
+  --portal-card:   #1a1a1a;
+  --portal-cream:  #e8e3d9;
+  --portal-bright: #fdfaf4;
+  --portal-gold:   #c89b3c;
+  --portal-ongold: #261a0f;
+  --portal-muted:  #8a8478;
+  --portal-faint:  #4a4540;
+  --portal-green:  #4caf7d;
+  --portal-red:    #e05c5c;
 
   /* ── Shadcn semantic tokens (mapped to Guilded palette) ── */
   --background:            #0f2621;
